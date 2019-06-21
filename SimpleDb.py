@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 ####
-# version:2019-02-28
+# version:2019-06-21
 ####
 import sys
 import MySQLdb as DB
@@ -21,7 +21,6 @@ class SimpleDb(object):
         self.conn = None
         self.cursor = None
         self._autocommit = autocommit
-        self._table = None
         self.last_execute_sql = None
         self.conn = self.get_conn()
         self.cursor = self.get_cursor(DB.cursors.DictCursor)
@@ -36,11 +35,14 @@ class SimpleDb(object):
             raise e
         return self.conn
     
-    def get_cursor(self, cursor_type=None):
+    def get_cursor(self, cursor_type=''):
         if not self.conn:
             self.get_conn()
         else:
             self.conn.ping()
+        
+        if cursor_type is not None:
+            cursor_type = DB.cursors.DictCursor
         try:
             self.cursor = self.conn.cursor(cursor_type)
         except Exception as e:
@@ -49,7 +51,7 @@ class SimpleDb(object):
     
     # 返回最后执行的sql语句
     def get_last_sql(self):
-        return self.last_execute_sql
+        return self.cursor._last_executed
     
     # 只接受 dict类型数据或者一组dict类型数据
     def is_data_many(self, data):
@@ -114,20 +116,19 @@ class SimpleDb(object):
             raise e
     
     # 执行传入的sql语句
-    def execute(self, *args):
+    def execute(self, query, args=None):
         try:
-            self.last_execute_sql = args[0]
-            self.cursor.execute(*args)
+            self.cursor.executemany(query, args)
             if self._autocommit:
                 self.conn.commit()
             return self.cursor.fetchall()
         except Exception as e:
-            print(self.last_execute_sql)
+            print(self.get_last_sql())
             self.conn.rollback()
             raise e
     
     # 执行select 语句
-    def select(self, table, fields, condition=None):
+    def select(self, table, fields, condition=None, **kwargs):
         field_str = self.format_fields(fields)
         if condition:
             select_sql = "SELECT %s FROM `%s` %s" % (field_str, table, condition)
@@ -135,13 +136,11 @@ class SimpleDb(object):
             select_sql = "SELECT %s FROM `%s`" % (field_str, table)
         
         try:
-            self.last_execute_sql = select_sql
             self.cursor.execute(select_sql)
-            if self._autocommit:
-                self.conn.commit()
+            self.conn.commit()
             return self.cursor.fetchall()
         except Exception as e:
-            print(self.last_execute_sql)
+            print(self.get_last_sql())
             raise e
     
     # fields = []
@@ -168,6 +167,7 @@ class SimpleDb(object):
             if self._autocommit:
                 self.conn.commit()
         except Exception as e:
+            print(self.get_last_sql())
             self.conn.rollback()
             raise e
     
@@ -193,7 +193,7 @@ class SimpleDb(object):
             if self._autocommit:
                 self.conn.commit()
         except Exception as e:
-            print(self.last_execute_sql)
+            print(self.get_last_sql())
             self.conn.rollback()
             raise e
 
