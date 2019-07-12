@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 ####
-# version:2019-06-21
+# version:2019-07-21
 ####
 import sys
 import MySQLdb as DB
@@ -24,6 +24,13 @@ class SimpleDb(object):
         self.last_execute_sql = None
         self.conn = self.get_conn()
         self.cursor = self.get_cursor(DB.cursors.DictCursor)
+    
+    def __enter__(self):
+        self.get_conn()
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
     
     def get_conn(self):
         if self.conn:
@@ -48,6 +55,15 @@ class SimpleDb(object):
         except Exception as e:
             raise e
         return self.cursor
+    
+    def close(self):
+        if self.conn:
+            try:
+                if self.cursor:
+                    self.cursor.close()
+                self.conn.close()
+            except Exception as e:
+                raise e
     
     # 返回最后执行的sql语句
     def get_last_sql(self):
@@ -118,7 +134,10 @@ class SimpleDb(object):
     # 执行传入的sql语句
     def execute(self, query, args=None):
         try:
-            self.cursor.executemany(query, args)
+            if not args:
+                self.cursor.execute(query, args)
+            else:
+                self.cursor.executemany(query, args)
             if self._autocommit:
                 self.conn.commit()
             return self.cursor.fetchall()
@@ -128,7 +147,7 @@ class SimpleDb(object):
             raise e
     
     # 执行select 语句
-    def select(self, table, fields, condition=None, **kwargs):
+    def select(self, table, fields, condition=None):
         field_str = self.format_fields(fields)
         if condition:
             select_sql = "SELECT %s FROM `%s` %s" % (field_str, table, condition)
@@ -203,7 +222,7 @@ if '__main__' == __name__:
         'user': 'root',
         'passwd': 'moma',
         'host': 'localhost',
-        'db': 'test',
+        'db': 'coupon_site_temp',
         'port': 3306,
         'charset': 'utf8'
     })
