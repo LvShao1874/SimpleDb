@@ -30,6 +30,7 @@ class SimpleDb(object):
         self.conn = self.get_conn()
         self.cursor = self.get_new_cursor(self.cursor_class)
         self.count = 0
+        self.last_sql_tmp = ''
     
     def __enter__(self):
         self.get_conn()
@@ -81,11 +82,14 @@ class SimpleDb(object):
     
     # 返回最后执行的sql语句
     def get_last_sql(self):
-        if self.cursor._last_executed:
-            decoded = array.array('b', self.cursor._last_executed).tostring().decode('utf-8')
-            return decoded
+        if isinstance(self.cursor_class, cursors.DictCursor):
+            if self.cursor._last_executed:
+                decoded = array.array('b', self.cursor._last_executed).tostring().decode('utf-8')
+                return decoded
+            else:
+                return ''
         else:
-            return ''
+            return self.last_sql_tmp
     
     # 只接受 dict类型数据或者一组dict类型数据
     def __is_data_many(self, data):
@@ -160,6 +164,7 @@ class SimpleDb(object):
     def execute(self, query, args=None, commit=None, get_first=False, return_iterator=False):
         try:
             is_many = self.__is_execute_data_many(args) if args else False
+            self.last_sql_tmp = query
             if not args:
                 self.cursor.execute(query, args)
             else:
@@ -188,6 +193,7 @@ class SimpleDb(object):
             select_sql = "SELECT %s FROM `%s`" % (field_str, table)
         
         try:
+            self.last_sql_tmp = select_sql
             self.cursor.execute(select_sql)
             if get_first or not return_iterator:
                 result = self.__get_execute_result(commit=commit, get_first=get_first)
@@ -235,7 +241,7 @@ class SimpleDb(object):
         data = self.format_data(fields=fields, data=data, defaults=defaults, is_many=is_many)
         s_string = self.generate_s(fields)
         insert_sql = "INSERT INTO `%s`(%s) VALUES(%s)" % (table, insert_field_str, s_string)
-        self.last_execute_sql = insert_sql
+        self.last_sql_tmp = insert_sql
         try:
             if is_many:
                 index = 0
@@ -261,7 +267,7 @@ class SimpleDb(object):
         data = self.format_data(fields=fields, data=data, defaults={}, is_many=is_many)
         s_string = self.generate_s(fields)
         insert_sql = "INSERT INTO `%s`(%s) VALUES(%s)" % (table, insert_field_str, s_string)
-        self.last_execute_sql = insert_sql
+        self.last_sql_tmp = insert_sql
         try:
             if is_many:
                 index = 0
