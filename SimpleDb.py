@@ -1,7 +1,7 @@
 # !/usr/bin/env python
 # -*- coding: UTF-8 -*-
 ####
-# version:2019-11-20
+# version:2020-02-10
 # author:lvshao
 ####
 import MySQLdb as DB
@@ -33,7 +33,7 @@ class SimpleDb(object):
         self.last_sql_tmp = ''
     
     def __enter__(self):
-        self.get_conn()
+        self.get_new_cursor()
         return self
     
     def __exit__(self, exc_type, exc_value, traceback):
